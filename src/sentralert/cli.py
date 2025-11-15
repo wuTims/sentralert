@@ -111,7 +111,7 @@ def auto_git_workflow(
 Alert configurations proposed:
 {alert_summary}
 
-@coderabbit:review
+@coderabbitai review
 """
 
         # Commit changes
