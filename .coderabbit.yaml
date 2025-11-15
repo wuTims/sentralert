@@ -132,9 +132,4 @@ labels:
   - "monitoring"
   - "sentry"
 
-tone_instructions: |
-  Be direct, specific, and professional when identifying spam alerts or issues.
-  Provide actionable suggestions with concrete numbers and rationale.
-  Consider the context of each flow type (historical, service, agent).
-  Reference the repository's own standards from the codebase when making recommendations.
-  Focus on preventing alert fatigue while ensuring critical issues are monitored.
+tone_instructions: "Be direct and specific. Suggest concrete improvements. Consider flow type (historical/service/agent). Reference repo standards. Prevent alert fatigue while monitoring critical issues."
