@@ -1,0 +1,140 @@
+# .coderabbit.yaml
+# CodeRabbit configuration for Sentralert - Intelligent Alert Generation System
+# This configuration ensures generated Sentry alerts are high-quality and spam-free
+
+review_instructions: |
+  This repository contains Sentralert - an AI-powered system that analyzes applications
+  and proposes Sentry metric alerts. The system uses Claude AI (Haiku 4.5) to generate
+  alerts based on historical metrics, codebase analysis, and autonomous agent analysis.
+
+  ALERT STRUCTURE:
+  Generated alerts are YAML files in alerts/ with this structure:
+  - kind: sentry.metric_alert
+  - flow: historical/service/agent (indicates generation method)
+  - name: Alert name
+  - dataset: transactions/events
+  - aggregate: p95(transaction.duration), count(), failure_rate(), etc.
+  - query: Sentry query string (MUST include environment filter)
+  - timeWindow: Time window in minutes
+  - thresholdType: above/below
+  - environment: Target environment
+  - thresholds: { warning: number, critical: number }
+  - justification: Explanation of why this alert is needed
+  - severity: LOW/MEDIUM/HIGH/CRITICAL
+  - actions: Array of notification actions
+
+  SPAM DETECTION RULES:
+  Apply these rules when reviewing alert YAML files to prevent alert fatigue:
+
+  1. LATENCY THRESHOLDS (p95(transaction.duration)):
+     - REJECT if p95 threshold < 500ms without strong justification
+     - For homepage/health endpoints: p95 < 200ms is TOO SENSITIVE
+     - For API endpoints: p95 < 300ms is TOO SENSITIVE
+     - For database queries: p95 < 100ms is TOO SENSITIVE
+     - REQUIRE: Thresholds should be based on historical baselines, not arbitrary values
+     - Historical flow legitimacy criteria: regression > 30% AND current latency > 500ms
+
+  2. FAILURE RATE THRESHOLDS:
+     - WARNING threshold should be around 0.03 (3%)
+     - CRITICAL threshold should be around 0.05 (5%)
+     - REJECT if critical threshold < 0.02 (2%) without exceptional justification
+     - Failure rates are decimal values (0.05 = 5%, not 5)
+
+  3. ERROR RATE THRESHOLDS (count() on event.type:error):
+     - WARNING threshold should be around 30 errors per timeWindow
+     - CRITICAL threshold should be around 50 errors per timeWindow
+     - REJECT if thresholds are too low for the time window
+
+  4. TIME WINDOWS:
+     - Standard timeWindow: 5 minutes (recommended)
+     - REJECT if timeWindow < 5 minutes (will cause alert fatigue)
+     - Shorter windows require exceptional justification
+
+  5. ENVIRONMENT FILTERS (CRITICAL):
+     - ALL alerts MUST include "environment:<env>" in the query field
+     - Example: 'event.type:transaction transaction:"/checkout" environment:production'
+     - REJECT any alert missing environment filter in query
+     - Verify environment in query matches environment field value
+
+  6. JUSTIFICATION QUALITY:
+     - REQUIRE justification to be at least 20 words
+     - Must explain WHY this threshold matters for THIS specific endpoint/metric
+     - Should reference business impact, not just technical metrics
+     - Weak patterns to flag: "slow", "issues", "problems" without specifics
+     - Good justifications mention: user impact, revenue impact, SLA requirements
+
+  7. SEVERITY ASSESSMENT:
+     - CRITICAL: Only for payment, auth, data loss, or core business function failures
+     - HIGH: User-facing issues affecting significant functionality
+     - MEDIUM: Performance degradation or non-critical features
+     - LOW: Minor issues or informational alerts
+     - REJECT over-inflated severity (most alerts should be HIGH or MEDIUM)
+
+  8. ALERT NAME QUALITY:
+     - Names should be specific and actionable
+     - REJECT vague names like "Slow endpoint", "API issues", "Performance problems"
+     - GOOD: "Checkout endpoint p95 latency above 800ms"
+     - GOOD: "Payment API failure rate above 5%"
+
+  9. QUERY VALIDATION:
+     - Must include event.type filter (transaction or error)
+     - Transaction names should NOT include HTTP method prefix (use "/checkout" not "GET /checkout")
+     - Verify aggregate function matches dataset (p95 for transactions, count for errors)
+
+  10. FLOW-SPECIFIC VALIDATION:
+     - historical: Should have baseline data referenced in justification
+     - service: Should reference specific code patterns or endpoint characteristics
+     - agent: Should synthesize both codebase and production insights
+
+  GOOD ALERT PATTERNS:
+  - Thresholds derived from historical baselines (7-day average + margin)
+  - 5-10 minute time windows for stability
+  - Clear business impact explained in justification
+  - Severity aligned with actual business risk
+  - Environment filters present in all queries
+  - Specific, actionable alert names
+
+  REVIEW PROCESS:
+  For each alert YAML file in a PR:
+  1. Verify all required fields are present
+  2. Check environment filter exists in query
+  3. Validate thresholds against spam detection rules
+  4. Assess justification quality and length
+  5. Verify severity matches business impact
+  6. Check alert name specificity
+  7. Rate overall spam risk as: LOW / MEDIUM / HIGH
+  8. Provide specific, actionable improvement suggestions
+  9. Flag any alerts that appear to be test/demo spam alerts
+
+  When providing feedback:
+  - Be direct and specific about issues
+  - Suggest concrete threshold improvements with rationale
+  - Reference historical data if available in justification
+  - Consider the flow type (historical/service/agent) in your assessment
+
+paths:
+  includes:
+    - "alerts/**/*.yaml"
+    - "alerts/**/*.yml"
+  excludes:
+    - "**/*.md"
+    - "**/*.py"
+    - "**/*.pyc"
+    - ".venv/**"
+    - "**/__pycache__/**"
+    - "**/test_*.py"
+    - "examples/**"
+
+require_comment_resolution: true
+
+labels:
+  - "alerts"
+  - "monitoring"
+  - "sentry"
+
+tone_instructions: |
+  Be direct, specific, and professional when identifying spam alerts or issues.
+  Provide actionable suggestions with concrete numbers and rationale.
+  Consider the context of each flow type (historical, service, agent).
+  Reference the repository's own standards from the codebase when making recommendations.
+  Focus on preventing alert fatigue while ensuring critical issues are monitored.

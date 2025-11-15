@@ -1,0 +1,45 @@
+name: Apply Sentry Alerts
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'alerts/**/*.yaml'
+      - 'alerts/**/*.yml'
+
+jobs:
+  apply-alerts:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests pyyaml
+
+      - name: Apply alerts to Sentry
+        env:
+          SENTRY_ORG_SLUG: ${{ secrets.SENTRY_ORG_SLUG }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_API: "https://sentry.io/api/0"
+        run: |
+          python scripts/apply_alerts.py alerts/
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Alerts have been applied to Sentry successfully!'
+            })
