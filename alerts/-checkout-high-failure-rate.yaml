@@ -1,0 +1,20 @@
+kind: sentry.metric_alert
+flow: historical
+name: /checkout high failure rate
+dataset: transactions
+aggregate: failure_rate()
+query: event.type:transaction transaction:"/checkout" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 0.03
+  critical: 0.05
+justification: Current failure rate is 39.6%, which is critically high for a user-facing
+  endpoint.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: tim.wulin+alerts@gmail.com
+proposed_by: historical
