@@ -1,0 +1,24 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Checkout payment processing critical - unmonitored endpoint
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/checkout" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 5.0
+  critical: 10.0
+justification: Codebase analysis reveals POST /api/checkout has NO error handling
+  for payment processing and is currently UNMONITORED. This is a critical financial
+  endpoint that calls PaymentService (Stripe) without timeout protection. Related
+  /checkout endpoint shows 37.2% failure rate (242 transactions) and 90 instances
+  of 'payment token missing' errors. This endpoint processes customer payments and
+  must have immediate monitoring.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent
