@@ -1,0 +1,19 @@
+kind: sentry.metric_alert
+flow: historical
+name: High error rate in production
+dataset: events
+aggregate: count()
+query: event.type:error environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 30
+  critical: 50
+justification: Detected 79 errors in the last hour, which exceeds normal baseline.
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: tim.wulin+alerts@gmail.com
+proposed_by: historical
