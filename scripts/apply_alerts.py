@@ -28,6 +28,34 @@ class SentryAlertApplier:
             "Authorization": f"Bearer {auth_token}",
             "Content-Type": "application/json",
         }
+        self._default_member_id = None  # Cache for default member ID
+
+    def get_default_member_id(self) -> str:
+        """
+        Get the default member ID for notifications.
+        Caches the result to avoid repeated API calls.
+
+        Returns:
+            Member ID as a string (user ID, not member ID)
+        """
+        if self._default_member_id:
+            return self._default_member_id
+
+        url = f"{self.api_url}/organizations/{self.org_slug}/members/"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        members = response.json()
+
+        if members:
+            # Use the user ID from the first member
+            # The API returns user object with an id field
+            if "user" in members[0] and "id" in members[0]["user"]:
+                self._default_member_id = str(members[0]["user"]["id"])
+            else:
+                self._default_member_id = str(members[0]["id"])
+            return self._default_member_id
+
+        raise ValueError("No members found in organization")
 
     def get_projects(self) -> List[Dict[str, Any]]:
         """Get all projects in the organization."""
@@ -97,11 +125,14 @@ class SentryAlertApplier:
             Sentry dataset identifier
         """
         dataset_mapping = {
-            "transactions": "transactions",
+            # Sentry has migrated from "transactions" to "events_analytics_platform"
+            "transactions": "events_analytics_platform",
             "errors": "errors",
             "sessions": "sessions",
+            # "events" dataset should also use events_analytics_platform for transaction queries
+            "events": "events_analytics_platform",
         }
-        return dataset_mapping.get(dataset, "transactions")
+        return dataset_mapping.get(dataset, "events_analytics_platform")
 
     def map_aggregate(self, aggregate: str) -> str:
         """
@@ -113,6 +144,17 @@ class SentryAlertApplier:
         Returns:
             Sentry-compatible aggregate string
         """
+        import re
+
+        # Convert percentile(0.95, field) to p95(field)
+        percentile_match = re.match(r'percentile\((0\.\d+),\s*(.+?)\)', aggregate)
+        if percentile_match:
+            percentile_value = percentile_match.group(1)
+            field = percentile_match.group(2)
+            # Convert 0.95 to p95, 0.99 to p99, etc.
+            p_value = int(float(percentile_value) * 100)
+            return f"p{p_value}({field})"
+
         # Sentry aggregates are already in the correct format
         # e.g., "p95(transaction.duration)", "count()", "failure_rate()"
         return aggregate
@@ -140,15 +182,21 @@ class SentryAlertApplier:
             # Update existing alert
             url = f"{self.api_url}/projects/{self.org_slug}/{project_slug}/alert-rules/{existing_alert['id']}/"
             response = requests.put(url, json=payload, headers=self.headers)
-            print(f"Updated alert: {alert_config['name']}")
         else:
             # Create new alert
             url = f"{self.api_url}/projects/{self.org_slug}/{project_slug}/alert-rules/"
             response = requests.post(url, json=payload, headers=self.headers)
-            print(f"Created alert: {alert_config['name']}")
 
-        response.raise_for_status()
-        return response.json()
+        try:
+            response.raise_for_status()
+            action = "Updated" if existing_alert else "Created"
+            print(f"{action} alert: {alert_config['name']}")
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            print(f"API Error: {e}")
+            print(f"Response: {response.text}")
+            print(f"Payload sent: {payload}")
+            raise
 
     def _build_alert_payload(self, alert_config: Dict[str, Any], project_slug: str) -> Dict[str, Any]:
         """
@@ -169,27 +217,36 @@ class SentryAlertApplier:
 
         # Build triggers (warning and critical)
         triggers = []
+        actions = self._build_actions(alert_config)
 
-        # Critical trigger (required)
+        # Critical trigger (required, must be first)
         if "critical" in thresholds:
             triggers.append({
                 "label": "critical",
                 "alertThreshold": thresholds["critical"],
-                "actions": self._build_actions(alert_config),
+                "actions": actions,
             })
 
-        # Warning trigger (optional)
+        # Warning trigger (optional, must come after critical)
         if "warning" in thresholds:
             triggers.append({
                 "label": "warning",
                 "alertThreshold": thresholds["warning"],
-                "actions": self._build_actions(alert_config),
+                "actions": actions,
             })
+
+        # Build the query with is_transaction filter for events_analytics_platform
+        query = alert_config.get("query", "")
+        dataset = self.map_dataset(alert_config.get("dataset", "transactions"))
+
+        # For events_analytics_platform, add is_transaction:true if not already present
+        if dataset == "events_analytics_platform" and "is_transaction" not in query:
+            query = f"is_transaction:true {query}".strip()
 
         payload = {
             "name": alert_config["name"],
-            "dataset": self.map_dataset(alert_config.get("dataset", "transactions")),
-            "query": alert_config.get("query", ""),
+            "dataset": dataset,
+            "query": query,
             "aggregate": self.map_aggregate(alert_config.get("aggregate", "count()")),
             "timeWindow": alert_config.get("timeWindow", 5),
             "thresholdType": threshold_type_value,
@@ -214,28 +271,16 @@ class SentryAlertApplier:
             List of action configurations
         """
         actions = []
-        action_configs = alert_config.get("actions", [])
 
-        for action_config in action_configs:
-            action_type = action_config.get("type", "email")
+        # Get the default member ID for notifications
+        member_id = self.get_default_member_id()
 
-            if action_type == "email":
-                target_type = action_config.get("targetType", "specific")
-                target_identifier = action_config.get("targetIdentifier", "")
-
-                # Map target type to Sentry format
-                if target_type == "specific":
-                    actions.append({
-                        "type": "email",
-                        "targetType": "specific",
-                        "targetIdentifier": target_identifier,
-                    })
-                elif target_type == "team":
-                    actions.append({
-                        "type": "email",
-                        "targetType": "team",
-                        "targetIdentifier": target_identifier,
-                    })
+        # Create a simple email action to the account owner
+        actions.append({
+            "type": "email",
+            "targetType": "user",
+            "targetIdentifier": member_id,
+        })
 
         return actions
 
