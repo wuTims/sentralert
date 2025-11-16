@@ -1,0 +1,21 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Unmonitored refund endpoint - POST /api/refund
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/refund" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 0.5
+  critical: 2.0
+justification: Codebase defines POST /api/refund for refund processing with external
+  PaymentService dependency, but no monitoring is currently active. Zero transactions
+  recorded. Financial integrity requires monitoring this endpoint.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

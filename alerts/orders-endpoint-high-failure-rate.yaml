@@ -1,0 +1,21 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Orders endpoint high failure rate
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"/api/orders" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 15.0
+  critical: 30.0
+justification: Production shows 38.2% failure rate (55 transactions) on /api/orders
+  endpoint. High failure rate on order retrieval indicates potential database connectivity
+  or service dependency issues.
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

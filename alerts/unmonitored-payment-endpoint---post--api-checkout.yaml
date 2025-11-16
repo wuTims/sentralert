@@ -1,0 +1,21 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Unmonitored payment endpoint - POST /api/checkout
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/checkout" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 1.0
+  critical: 5.0
+justification: Codebase defines POST /api/checkout for payment processing with external
+  PaymentService dependency, but no monitoring is currently active. Zero transactions
+  recorded. This critical endpoint requires active monitoring for failures and performance.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

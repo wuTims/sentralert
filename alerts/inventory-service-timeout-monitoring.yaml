@@ -1,0 +1,21 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Inventory service timeout monitoring
+dataset: transactions
+aggregate: percentile(0.95, transaction.duration)
+query: event.type:transaction transaction:"/api/inventory/{sku}" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 500
+  critical: 1000
+justification: 'Production error: ''TimeoutError: Inventory database timeout'' (1
+  occurrence). Codebase indicates missing timeout configuration for external API calls.
+  P95 latency at 187ms shows potential for timeout issues.'
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

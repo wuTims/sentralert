@@ -1,0 +1,21 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Checkout p95 latency spike - external API delays
+dataset: transactions
+aggregate: percentile(0.95, transaction.duration)
+query: event.type:transaction transaction:"/checkout" environment:production
+timeWindow: 10
+thresholdType: above
+environment: production
+thresholds:
+  warning: 800
+  critical: 1500
+justification: Codebase shows external PaymentService calls without timeout configuration.
+  Production p95 latency is 1159ms (4x p50 of 284ms), indicating potential hang-ups
+  on external API calls to Stripe.
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent
