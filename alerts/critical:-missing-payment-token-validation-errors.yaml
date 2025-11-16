@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'Critical: Missing payment token validation errors'
+dataset: events
+aggregate: 'error_count(''ValueError: Checkout failed: payment token missing'')'
+query: event.type:transaction transaction:"/checkout" environment:production
+timeWindow: 10
+thresholdType: above
+environment: production
+thresholds:
+  warning: 10
+  critical: 50
+justification: 90 recent errors with 'payment token missing' in /checkout endpoint.
+  Codebase identifies 'No error handling on /api/checkout payment processing'. This
+  represents ~37% of checkout failures. Error indicates missing validation logic or
+  upstream integration issue.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

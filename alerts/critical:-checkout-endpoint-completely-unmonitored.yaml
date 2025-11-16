@@ -1,0 +1,23 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'Critical: Checkout endpoint completely unmonitored'
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/checkout" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 5.0
+  critical: 15.0
+justification: Codebase identifies this as critical payment processing endpoint with
+  no error handling for external PaymentService calls. Currently unmonitored despite
+  high transaction volume. Production data shows related /checkout endpoint with 37.2%
+  failure rate and 90+ recent errors (payment token missing). This is a revenue-critical
+  endpoint requiring immediate monitoring.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'High: Checkout failure rate spike detection'
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"/checkout" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 10.0
+  critical: 25.0
+justification: Production data shows /checkout endpoint with actual 37.2% failure
+  rate (well above acceptable threshold). 90 errors in 24h related to missing payment
+  tokens indicate upstream validation issues. P95 latency at 1.16s shows performance
+  degradation. This endpoint processes 242 transactions daily.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'Critical: Refund endpoint completely unmonitored'
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/refund" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 2.0
+  critical: 5.0
+justification: Codebase shows refund processing endpoint is unmonitored and likely
+  uses same PaymentService without error handling. Refunds directly impact customer
+  satisfaction and financial accuracy. Zero current monitoring creates blind spot
+  for financial transactions.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

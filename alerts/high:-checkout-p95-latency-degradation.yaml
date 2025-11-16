@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'High: Checkout p95 latency degradation'
+dataset: transactions
+aggregate: p95(transaction.duration)
+query: event.type:transaction transaction:"/checkout" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 800
+  critical: 1500
+justification: 'P95 latency at 1,159ms is concerning for payment processing. Codebase
+  indicates missing timeout configuration for external API calls to PaymentService.
+  Production data shows this is baseline behavior (p50: 284ms vs p95: 1,159ms = 4x
+  spread), indicating intermittent slowdowns affecting customer experience.'
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

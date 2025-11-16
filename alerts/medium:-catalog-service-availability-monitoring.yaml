@@ -1,0 +1,21 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'Medium: Catalog service availability monitoring'
+dataset: events
+aggregate: 'error_count(''RuntimeError: Catalog service temporarily unavailable'')'
+query: event.type:transaction transaction:"/catalog" environment:production
+timeWindow: 15
+thresholdType: above
+environment: production
+thresholds:
+  warning: 2
+  critical: 5
+justification: '3 recent errors: ''RuntimeError: Catalog service temporarily unavailable''.
+  This is a critical dependency for checkout flow. Current 3.3% failure rate is acceptable
+  but service availability errors need explicit monitoring given dependency chain.'
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

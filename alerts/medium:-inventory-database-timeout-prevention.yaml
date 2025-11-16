@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'Medium: Inventory database timeout prevention'
+dataset: events
+aggregate: error_count('TimeoutError')
+query: event.type:transaction transaction:"/api/inventory/{sku}" environment:production
+timeWindow: 15
+thresholdType: above
+environment: production
+thresholds:
+  warning: 3
+  critical: 10
+justification: 'Codebase shows missing timeout configuration for external API calls.
+  Production errors include ''TimeoutError: Inventory database timeout''. Inventory
+  checks occur during checkout flow. Current 2.5% failure rate is acceptable but timeout
+  errors need proactive monitoring.'
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

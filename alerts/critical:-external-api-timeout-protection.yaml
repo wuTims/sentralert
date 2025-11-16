@@ -1,0 +1,21 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: 'Critical: External API timeout protection'
+dataset: events
+aggregate: error_count('TimeoutError')
+query: event.type:transaction transaction:"PaymentService" environment:production
+timeWindow: 10
+thresholdType: above
+environment: production
+thresholds:
+  warning: 2
+  critical: 5
+justification: Codebase explicitly documents 'Missing timeout configuration for external
+  API calls' to PaymentService (Stripe). No timeout protection exists for external
+  dependency. This can cause cascading failures and resource exhaustion.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent
