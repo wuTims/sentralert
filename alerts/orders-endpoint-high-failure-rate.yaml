@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Orders Endpoint High Failure Rate
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/orders" environment:production
+timeWindow: 10
+thresholdType: above
+environment: production
+thresholds:
+  warning: 5.0
+  critical: 15.0
+justification: Production data shows /api/orders endpoint with 38.2% failure rate
+  (55 transactions, multiple LookupError occurrences). While this endpoint is marked
+  as monitored in codebase, alerts not configured for this elevated failure rate.
+  Likely related to OrderService database queries without proper error handling.
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

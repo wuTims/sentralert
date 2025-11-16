@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Refund Processing Failure Rate - Unmonitored Financial Operation
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/refund" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 1.0
+  critical: 3.0
+justification: Critical financial operation with zero monitoring coverage. Codebase
+  reveals this endpoint exists but has no monitoring enabled. Refund operations require
+  immediate failure detection. Like checkout endpoint, likely suffers from missing
+  error handling for payment processing.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

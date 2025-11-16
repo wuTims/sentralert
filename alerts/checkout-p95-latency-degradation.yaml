@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Checkout P95 Latency Degradation
+dataset: transactions
+aggregate: percentile(transaction.duration, 0.95)
+query: event.type:transaction transaction:"POST /api/checkout" environment:production
+timeWindow: 10
+thresholdType: above
+environment: production
+thresholds:
+  warning: 800
+  critical: 1500
+justification: Production metrics show p95 latency of 1159ms for checkout operations.
+  Elevated latency indicates potential timeout or external API delays. Combined with
+  37.2% failure rate, suggests PaymentService dependency is experiencing issues. Missing
+  timeout configuration increases risk of cascading failures.
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent

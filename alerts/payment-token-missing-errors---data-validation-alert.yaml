@@ -1,0 +1,22 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Payment Token Missing Errors - Data Validation Alert
+dataset: events
+aggregate: error_count()
+query: event.type:transaction transaction:"POST /api/checkout" environment:production
+timeWindow: 60
+thresholdType: above
+environment: production
+thresholds:
+  warning: 30
+  critical: 75
+justification: Production errors reveal 90 'payment token missing' errors and 21 'payment_method'
+  key errors in 24h window - indicating systematic data validation failures. These
+  errors suggest request validation or client-side issues, requiring threshold-based
+  alerting to detect when error rate exceeds acceptable baseline.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent
