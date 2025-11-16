@@ -59,6 +59,101 @@ Respond with ONLY the branch name, nothing else."""
     return branch_name
 
 
+def generate_pr_description(
+    suggestions: list[dict], anthropic_api_key: str, flow_type: str = "historical"
+) -> str:
+    """
+    Use Claude to generate a high-quality PR description.
+
+    Args:
+        suggestions: List of alert suggestions
+        anthropic_api_key: Anthropic API key
+        flow_type: Type of analysis flow ("historical" or "service")
+
+    Returns:
+        Generated PR description with alert details and CodeRabbit tag
+    """
+    client = Anthropic(api_key=anthropic_api_key)
+
+    # Build detailed alert summary for Claude
+    alert_details = []
+    for suggestion in suggestions:
+        name = suggestion.get("name", "Unknown")
+        justification = suggestion.get("justification", "No justification provided")
+        severity = suggestion.get("severity", "MEDIUM")
+        aggregate = suggestion.get("aggregate", "")
+        query = suggestion.get("query", "")
+
+        # Extract endpoint/transaction from query if available
+        endpoint = "N/A"
+        if "transaction:" in query:
+            # Extract transaction name from query
+            import re
+
+            match = re.search(r'transaction:"([^"]+)"', query)
+            if match:
+                endpoint = match.group(1)
+
+        alert_details.append(
+            {
+                "name": name,
+                "endpoint": endpoint,
+                "justification": justification,
+                "severity": severity,
+                "metric": aggregate,
+            }
+        )
+
+    # Create detailed JSON for Claude
+    alerts_json = json.dumps(alert_details, indent=2)
+
+    prompt = f"""You are creating a pull request description for automated alert configurations generated from Sentry data analysis.
+
+Here are the {len(suggestions)} alerts being proposed:
+
+{alerts_json}
+
+Generate a concise, high-quality PR description with the following structure:
+
+## Alert configurations proposed:
+
+[For each alert, create a bullet point with:
+- The alert name
+- The endpoint/transaction being monitored (if applicable)
+- A brief description of what triggers it]
+
+**Generated from {flow_type} Sentry data analysis.**
+
+@coderabbitai review these alerts for quality and potential false positives
+
+Requirements:
+- Be concise but informative
+- Focus on WHAT is being monitored, not technical implementation details
+- Use clear, professional language
+- Include all alerts in a scannable format
+- Keep the @coderabbitai tag exactly as shown above
+
+Example format:
+## Alert configurations proposed:
+
+- **High error rate in production** - Monitors overall error count; triggers when errors exceed 30/5min
+- **/api/checkout high failure rate** - Monitors checkout transaction failures; triggers at >3% failure rate
+- **/api/orders slow response time** - Monitors order endpoint latency; triggers when p95 exceeds baseline
+
+**Generated from historical Sentry data analysis.**
+
+@coderabbitai review these alerts for quality and potential false positives"""
+
+    response = client.messages.create(
+        model="claude-3-5-haiku-20241022",
+        max_tokens=1000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    pr_description = response.content[0].text.strip()
+    return pr_description
+
+
 def auto_git_workflow(
     suggestions: list[dict], alert_files: list, anthropic_api_key: str
 ) -> None:
@@ -132,10 +227,31 @@ Alert configurations proposed:
         )
         print("✓ Branch pushed successfully")
 
+        # Detect flow type from suggestions
+        flow_type = "historical"
+        if suggestions and suggestions[0].get("flow") == "service_analysis_agent":
+            flow_type = "service"
+
+        # Generate PR description using Claude
+        print("\n Generating PR description with Claude...")
+        pr_description = generate_pr_description(
+            suggestions, anthropic_api_key, flow_type
+        )
+        print("✓ PR description generated")
+
+        # Display PR details for manual creation
+        print("\n" + "=" * 70)
+        print("PR TITLE:")
+        print(f"Add {len(suggestions)} alert configuration(s)")
+        print("\nPR DESCRIPTION:")
+        print(pr_description)
+        print("=" * 70)
+
         print("\n Auto workflow complete!")
         print("\nNext steps:")
-        print(f"  1. Create PR: gh pr create --base main --head {branch_name}")
-        print("  2. CodeRabbit will automatically review the PR")
+        print(f"  1. Go to GitHub and create a PR from branch '{branch_name}' to 'main'")
+        print("  2. Copy the PR description above")
+        print("  3. CodeRabbit will automatically review the PR")
 
     except subprocess.CalledProcessError as e:
         print(f"\n Git operation failed: {e}")
