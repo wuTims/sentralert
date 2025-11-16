@@ -1,0 +1,23 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Payment Service Timeout Alert - Stripe Integration
+dataset: events
+aggregate: measurements.db.client.connections.usage
+query: event.type:transaction transaction:"PaymentService (External API)" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 75
+  critical: 90
+justification: Codebase explicitly identifies missing timeout configuration for external
+  API calls to Stripe. Production errors include TimeoutError from inventory service
+  (1 occurrence), indicating timeout vulnerabilities exist. Stripe API calls from
+  /api/checkout and /api/refund lack timeout protection, risking resource exhaustion
+  and hung requests.
+severity: HIGH
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent
