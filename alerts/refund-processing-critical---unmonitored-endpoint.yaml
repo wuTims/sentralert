@@ -1,0 +1,23 @@
+kind: sentry.metric_alert
+flow: service_analysis_agent
+name: Refund processing critical - unmonitored endpoint
+dataset: events
+aggregate: failure_rate()
+query: event.type:transaction transaction:"POST /api/refund" environment:production
+timeWindow: 5
+thresholdType: above
+environment: production
+thresholds:
+  warning: 2.0
+  critical: 5.0
+justification: POST /api/refund is completely UNMONITORED and represents critical
+  financial operations affecting customer trust. Codebase shows it calls PaymentService
+  with missing timeout configuration, same vulnerability as checkout. Financial refund
+  operations must have explicit failure monitoring. Recommend immediate instrumentation
+  with strict thresholds.
+severity: CRITICAL
+actions:
+- type: email
+  targetType: specific
+  targetIdentifier: team@example.com
+proposed_by: service_analysis_agent
